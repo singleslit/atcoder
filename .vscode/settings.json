@@ -1,0 +1,8 @@
+{
+    "terminal.integrated.env.linux": {
+        "PATH": "${env:PATH}:${workspaceFolder}/scripts"
+    },
+    "terminal.integrated.env.osx": {
+        "PATH": "${env:PATH}:${workspaceFolder}/scripts"
+    }
+}
