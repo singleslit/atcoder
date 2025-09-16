@@ -7,11 +7,18 @@ script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
 
 usage() {
   cat << EOF
-Usage: $(basename "${BASH_SOURCE[0]}") <contest_name> <number_of_problems | last_problem_letter>
+Usage: $(basename "${BASH_SOURCE[0]}") <contest_name> <problems> [template_file]
 
-Example:
-  $(basename "${BASH_SOURCE[0]}") ABC123 H   # creates ABC123/A.cpp ... ABC123/H.cpp
-  $(basename "${BASH_SOURCE[0]}") XYZ456 5   # creates XYZ456/A.cpp ... XYZ456/E.cpp
+Arguments:
+  <contest_name>              Name of the contest (e.g., ABC123)
+  <problems>                  Either the number of problems (e.g., 5) or the last problem letter (e.g., H)
+  [template_file]             Path to a custom template file (optional)
+                              Defaults to: <project_root>/template.cpp
+
+Examples:
+  $(basename "${BASH_SOURCE[0]}") ABC123 H
+  $(basename "${BASH_SOURCE[0]}") XYZ456 5
+  $(basename "${BASH_SOURCE[0]}") XYZ456 5 ~/custom_template.cpp
 EOF
   exit
 }
@@ -22,8 +29,8 @@ cleanup() {
 
   if [[ -n "${contest_path-}" && -d "$contest_path" ]]; then
     if [[ $status -ne 0 ]]; then
-      rm -rf "$contest_path"
-      msg "${RED}Error occurred. Cleaning up: $contest_path${NOFORMAT}"
+      msg "${ORANGE}Cleaning up: $contest_path${NOFORMAT}"
+      git clean -qfd -- "$contest_path"
     fi
   fi
 }
@@ -48,7 +55,7 @@ die() {
 }
 
 parse_params() {
-  if [[ $# -ne 2 ]]; then
+  if [[ $# -lt 2 || $# -gt 3 ]]; then
     usage
   fi
 
@@ -60,7 +67,13 @@ parse_params() {
   elif [[ $problems =~ ^[A-Z]+$ ]]; then
     count=$(letters_to_num "$problems")
   else
-    die "Error: second argument must be a number or letters (A–Z, AA, AB, ...)."
+    die "${RED}Error: second argument must be a number or letters (A–Z, AA, AB, ...).${NOFORMAT}"
+  fi
+
+  if [[ $# -eq 3 ]]; then
+    template_file="$3"
+  else
+    template_file="$(dirname "$script_dir")/template.cpp"
   fi
 }
 
@@ -90,12 +103,22 @@ num_to_letters() {
 create_contest() {
   project_root="$(dirname "$script_dir")"
   contest_path="$project_root/$contest_name"
-  template_file="$project_root/template.cpp"
 
   mkdir -p "$contest_path"
 
   if [[ ! -f "$template_file" ]]; then
-    die "Template file not found: $template_file"
+    die "${RED}Template file not found: $template_file${NOFORMAT}"
+  fi
+
+  gitignore_file="$contest_path/.gitignore"
+  if [[ ! -f "$gitignore_file" ]]; then
+    cat > "$gitignore_file" << EOF
+*_input.txt
+*_output.txt
+EOF
+    msg "${GREEN}Created $gitignore_file${NOFORMAT}"
+  else
+    msg "${YELLOW}Skipped $gitignore_file (already exists)${NOFORMAT}"
   fi
 
   for ((i=0; i<count; i++)); do
@@ -112,7 +135,7 @@ create_contest() {
   done
 }
 
-parse_params "$@"
 setup_colors
+parse_params "$@"
 
 create_contest
