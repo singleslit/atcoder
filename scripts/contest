@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 set -Eeuo pipefail
-trap cleanup SIGTERM ERR EXIT
+trap cleanup SIGINT SIGTERM ERR EXIT
 
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
 
@@ -10,22 +10,24 @@ usage() {
 Usage: $(basename "${BASH_SOURCE[0]}") <contest_name> <problems> [template_file]
 
 Arguments:
-  <contest_name>              Name of the contest (e.g., ABC123)
-  <problems>                  Either the number of problems (e.g., 5) or the last problem letter (e.g., H)
+  <contest_name>              Name of the contest (case-sensitive, e.g., Abc123)
+  <problems>                  Either the number of problems (e.g., 5) or the last problem letter
+                              (case-insensitive, e.g., h or H → problems a.cpp to h.cpp)
   [template_file]             Path to a custom template file (optional)
                               Defaults to: <project_root>/template.cpp
 
 Examples:
-  $(basename "${BASH_SOURCE[0]}") ABC123 H
-  $(basename "${BASH_SOURCE[0]}") XYZ456 5
-  $(basename "${BASH_SOURCE[0]}") XYZ456 5 ~/custom_template.cpp
+  $(basename "${BASH_SOURCE[0]}") Abc123 h
+  $(basename "${BASH_SOURCE[0]}") Abc123 H
+  $(basename "${BASH_SOURCE[0]}") xyz456 5
+  $(basename "${BASH_SOURCE[0]}") xyz456 5 ~/custom_template.cpp
 EOF
   exit
 }
 
 cleanup() {
   status=$?
-  trap - SIGTERM ERR EXIT
+  trap - SIGINT SIGTERM ERR EXIT
 
   if [[ -n "${contest_path-}" && -d "$contest_path" ]]; then
     if [[ $status -ne 0 ]]; then
@@ -59,15 +61,15 @@ parse_params() {
     usage
   fi
 
-  contest_name=$(echo "$1" | tr '[:lower:]' '[:upper:]')
-  problems=$(echo "$2" | tr '[:lower:]' '[:upper:]')
+  contest_name="$1"
+  problems="$2"
 
   if [[ $problems =~ ^[0-9]+$ ]]; then
     count=$problems
-  elif [[ $problems =~ ^[A-Z]+$ ]]; then
-    count=$(letters_to_num "$problems")
+  elif [[ $problems =~ ^[A-Za-z]+$ ]]; then
+    count=$(letters_to_num "$(echo "$problems" | tr '[:lower:]' '[:upper:]')")
   else
-    die "${RED}Error: second argument must be a number or letters (A–Z, AA, AB, ...).${NOFORMAT}"
+    die "${RED}Second argument must be a number or letters (a–z, aa, ab, ...).${NOFORMAT}"
   fi
 
   if [[ $# -eq 3 ]]; then
@@ -118,14 +120,14 @@ create_contest() {
 EOF
     msg "${GREEN}Created $gitignore_file${NOFORMAT}"
   else
-    msg "${YELLOW}Skipped $gitignore_file (already exists)${NOFORMAT}"
+    msg "${ORANGE}Skipped $gitignore_file (already exists)${NOFORMAT}"
   fi
 
   for ((i=0; i<count; i++)); do
-    letter=$(num_to_letters $i)
+    letter=$(num_to_letters $i | tr '[:upper:]' '[:lower:]')   # lowercase
     file="$contest_path/$letter.cpp"
     if [[ -f "$file" ]]; then
-      msg "${YELLOW}Skipped $file (already exists)${NOFORMAT}"
+      msg "${ORANGE}Skipped $file (already exists)${NOFORMAT}"
     else
       sed -e "s/{{PROBLEM}}/$letter/g" \
           -e "s/{{CONTEST}}/$contest_name/g" \
@@ -139,3 +141,4 @@ setup_colors
 parse_params "$@"
 
 create_contest
+msg "${CYAN}To enter the contest folder, run:\ncd \"$contest_name\"${NOFORMAT}"
