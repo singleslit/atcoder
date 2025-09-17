@@ -85,7 +85,15 @@ compile_and_run() {
   msg "${GREEN}Compilation successful.${NOFORMAT}"
   
   msg "${ORANGE}Running $out_file...${NOFORMAT}"
-  /usr/bin/time -f "Elapsed: %e s  Execution: %U s  System: %S s  Memory: %M KB" "./$out_file" 2> >(while read -r line; do msg "${CYAN}${line}${NOFORMAT}"; done)
+  if [[ "$(uname)" != "Darwin" ]]; then
+  # macOS
+    TIME_CMD="gtime"
+  else
+  # Linux (assume GNU time is available as /usr/bin/time)
+    TIME_CMD="/usr/bin/time"
+  fi
+
+  $TIME_CMD -f "Elapsed: %e s  Execution: %U s  System: %S s  Memory: %M KB" "./$out_file" 2> >(while read -r line; do msg "${CYAN}${line}${NOFORMAT}"; done)
 }
 
 setup_colors
