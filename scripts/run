@@ -50,6 +50,11 @@ parse_params() {
   fi
 
   input_file="$1"
+
+  if [[ "$input_file" != *.* ]]; then
+    input_file="${input_file}.cpp"
+  fi
+
   dir_name="$(dirname "$input_file")"
   base_name="$(basename "$input_file")"
 
